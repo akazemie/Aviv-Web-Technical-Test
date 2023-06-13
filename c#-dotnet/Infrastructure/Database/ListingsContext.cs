@@ -1,5 +1,5 @@
-using Microsoft.EntityFrameworkCore;
 using listingapi.Infrastructure.Database.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace listingapi.Infrastructure.Database
 {
@@ -15,5 +15,6 @@ namespace listingapi.Infrastructure.Database
         }
 
         public virtual DbSet<Listing> Listings { get; set; }
+        public virtual DbSet<ListingPriceHistory> ListingPriceHistories { get; set; }
     }
 }

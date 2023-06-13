@@ -10,3 +10,9 @@ VALUES ('2023-01-17 14:19:22.808738', '2023-01-17 14:20:47.707666', 'Mikhail Sch
        ('2023-01-17 16:33:36.248006', '2023-01-17 16:33:36.248010', 'Louise Besnard', '', 'HOUSE', 248, 6, 6, 625000, '304, rue de Didier', '82694', 'Godard-sur-Mer', 'FR', '+910443688550'),
        ('2023-01-17 16:33:36.285725', '2023-01-17 16:33:36.285730', 'Lucie Mercier-Besnard', '', 'STUDIO', 233, 3, 2, 1965000, '24, boulevard Maurice Ledoux', '69310', 'Prévostnec', 'FR', '+27681548599'),
        ('2023-01-17 16:33:36.320948', '2023-01-17 16:33:36.320965', 'Lore Colpaert', '', 'HOUSE', 416, 6, 4, 425000, 'Jonathanboulevard 631', '9038', 'Leval-Trahegnies', 'BE', '+513588807213');
+
+
+INSERT INTO public.listingpricehistory
+                  (listing_priceid, price, updated_date)
+SELECT id, price, updated_date
+FROM     listing
