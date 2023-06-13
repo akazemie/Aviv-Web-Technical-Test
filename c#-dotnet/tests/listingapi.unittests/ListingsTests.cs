@@ -1,10 +1,10 @@
+using listingapi.Controllers;
+using listingapi.Infrastructure.Database;
+using listingapi.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
-using listingapi.Controllers;
-using listingapi.Infrastructure.Database;
-using listingapi.Models;
 using System.Text.RegularExpressions;
 using Xunit;
 
@@ -13,14 +13,18 @@ namespace listingapi.unittests
     public class ListingsTests
     {
         private ListingsController _listingsController;
+        private readonly Mock<ILogger<ListingsController>> _mockLogger;
+
         public ListingsTests()
         {
-            var loggerMock = new Mock<ILogger<ListingsController>>();
+            _mockLogger = new Mock<ILogger<ListingsController>>();
 
             var options = new DbContextOptionsBuilder<ListingsContext>().Options;
             var listingContextMock = new Mock<ListingsContext>(options);
             listingContextMock.Setup(m => m.Listings).Returns(new Mock<DbSet<Infrastructure.Database.Models.Listing>>().Object);
-            _listingsController = new ListingsController(loggerMock.Object, listingContextMock.Object);
+            listingContextMock.Setup(m => m.ListingPriceHistories)
+                .Returns(new Mock<DbSet<Infrastructure.Database.Models.ListingPriceHistory>>().Object);
+            _listingsController = new ListingsController(_mockLogger.Object, listingContextMock.Object);
         }
 
         [Fact]
@@ -85,8 +89,50 @@ namespace listingapi.unittests
         [Fact]
         public async Task TestGetListingPriceHistoryValid()
         {
-            var actionResult = _listingsController.GetListingPriceHistory(0) as ObjectResult;
+            // Get the price history for the new listing
+            // Arrange
+            int listingId = 1;
+            var listingPriceHistories = new List<Infrastructure.Database.Models.ListingPriceHistory>
+            {
+                new Infrastructure.Database.Models.ListingPriceHistory { Id = 1, ListingPriceId = listingId, UpdateDate = DateTime.Now.AddDays(-1), Price = 9.99 },
+                new Infrastructure.Database.Models.ListingPriceHistory { Id = 2, ListingPriceId = listingId, UpdateDate = DateTime.Now, Price = 19.99 }
+            };
+            var expectedPrices = new List<PriceReadOnly>
+            {
+                new PriceReadOnly { CreatedDate = listingPriceHistories[0].UpdateDate, PriceEur = (int)listingPriceHistories[0].Price },
+                new PriceReadOnly { CreatedDate = listingPriceHistories[1].UpdateDate, PriceEur = (int)listingPriceHistories[1].Price }
+            };
+
+            var mockDbSet = new Mock<DbSet<Infrastructure.Database.Models.ListingPriceHistory>>();
+            mockDbSet.As<IQueryable<Infrastructure.Database.Models.ListingPriceHistory>>().Setup(m => m.Provider).Returns(listingPriceHistories.AsQueryable().Provider);
+            mockDbSet.As<IQueryable<Infrastructure.Database.Models.ListingPriceHistory>>().Setup(m => m.Expression).Returns(listingPriceHistories.AsQueryable().Expression);
+            mockDbSet.As<IQueryable<Infrastructure.Database.Models.ListingPriceHistory>>().Setup(m => m.ElementType).Returns(listingPriceHistories.AsQueryable().ElementType);
+            mockDbSet.As<IQueryable<Infrastructure.Database.Models.ListingPriceHistory>>().Setup(m => m.GetEnumerator()).Returns(listingPriceHistories.AsQueryable().GetEnumerator());
+
+
+            var options = new DbContextOptionsBuilder<ListingsContext>().Options;
+            var listingContextMock = new Mock<ListingsContext>(options);
+
+            listingContextMock.Setup(m => m.Listings)
+                .Returns(new Mock<DbSet<Infrastructure.Database.Models.Listing>>().Object);
+
+            listingContextMock.Setup(c => c.ListingPriceHistories).Returns(mockDbSet.Object);
+
+            var controller = new ListingsController(_mockLogger.Object, listingContextMock.Object);
+
+            // Act
+            var actionResult = controller.GetListingPriceHistory(listingId);
+
+            // Assert
             Assert.NotNull(actionResult);
+
+            var okResult = Assert.IsType<OkObjectResult>(actionResult);
+            var actualPrices = Assert.IsAssignableFrom<IEnumerable<PriceReadOnly>>(okResult.Value);
+            Assert.Equal(expectedPrices.Count, actualPrices.Count());
+            Assert.Equal(expectedPrices[0].CreatedDate, actualPrices.ElementAt(0).CreatedDate);
+            Assert.Equal(expectedPrices[0].PriceEur, actualPrices.ElementAt(0).PriceEur);
+            Assert.Equal(expectedPrices[1].CreatedDate, actualPrices.ElementAt(1).CreatedDate);
+            Assert.Equal(expectedPrices[1].PriceEur, actualPrices.ElementAt(1).PriceEur);
         }
 
         [Fact]
