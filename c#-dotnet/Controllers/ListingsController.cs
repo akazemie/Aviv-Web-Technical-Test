@@ -218,6 +218,7 @@ namespace listingapi.Controllers
                 UpdatedDate = listing.UpdatedDate,
                 Price = new PriceReadOnly
                 {
+                    CreatedDate = listing.UpdatedDate,
                     PriceEur = (int)listing.Price
                 },
                 BedroomsCount = listing.BedroomsCount,
