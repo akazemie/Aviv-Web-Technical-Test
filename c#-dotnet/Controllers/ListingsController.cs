@@ -1,13 +1,14 @@
+using listingapi.Infrastructure.Database;
+using listingapi.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using listingapi.Infrastructure.Database;
-using listingapi.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Transactions;
 
 namespace listingapi.Controllers
 {
@@ -68,28 +69,41 @@ namespace listingapi.Controllers
             try
             {
                 // Insert
-                var createDate = DateTime.Now;
-                var result = new Infrastructure.Database.Models.Listing
+                using (var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
                 {
-                    BedroomsCount = listing.BedroomsCount,
-                    BuildingType = listing.BuildingType.ToString(),
-                    ContactPhoneNumber = listing.ContactPhoneNumber,
-                    CreatedDate = createDate,
-                    UpdatedDate = createDate,
-                    Name = listing.Name,
-                    Description = listing.Description,
-                    Price = listing.LatestPriceEur,
-                    RoomsCount = listing.RoomsCount,
-                    SurfaceAreaM2 = listing.SurfaceAreaM2,
-                    City = listing.PostalAddress.City,
-                    Country = listing.PostalAddress.Country,
-                    PostalCode = listing.PostalAddress.PostalCode,
-                    StreetAddress = listing.PostalAddress.StreetAddress,
-                };
-                _listingsContext.Listings.Add(result);
-                await _listingsContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                    var createDate = DateTime.Now;
+                    var result = new Infrastructure.Database.Models.Listing
+                    {
+                        BedroomsCount = listing.BedroomsCount,
+                        BuildingType = listing.BuildingType.ToString(),
+                        ContactPhoneNumber = listing.ContactPhoneNumber,
+                        CreatedDate = createDate,
+                        UpdatedDate = createDate,
+                        Name = listing.Name,
+                        Description = listing.Description,
+                        Price = listing.LatestPriceEur,
+                        RoomsCount = listing.RoomsCount,
+                        SurfaceAreaM2 = listing.SurfaceAreaM2,
+                        City = listing.PostalAddress.City,
+                        Country = listing.PostalAddress.Country,
+                        PostalCode = listing.PostalAddress.PostalCode,
+                        StreetAddress = listing.PostalAddress.StreetAddress,
+                    };
+                    _listingsContext.Listings.Add(result);
+                    await _listingsContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-                return StatusCode(StatusCodes.Status201Created, MapListing(result));
+                    var newPriceHistory = new Infrastructure.Database.Models.ListingPriceHistory
+                    {
+                        ListingPriceId = result.Id,
+                        Price = listing.LatestPriceEur,
+                        UpdateDate = createDate
+                    };
+                    _listingsContext.ListingPriceHistories.Add(newPriceHistory);
+                    await _listingsContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+                    scope.Complete();
+                    return StatusCode(StatusCodes.Status201Created, MapListing(result));
+                }
             }
             catch (Exception ex)
             {
@@ -121,23 +135,40 @@ namespace listingapi.Controllers
                 if (result == null) return NotFound();
 
                 // Update listing
-                var priceDate = DateTime.Now;
-                result.BedroomsCount = listing.BedroomsCount;
-                result.BuildingType = listing.BuildingType.ToString();
-                result.ContactPhoneNumber = listing.ContactPhoneNumber;
-                result.UpdatedDate = DateTime.Now;
-                result.Name = listing.Name;
-                result.Description = listing.Description;
-                result.Price = listing.LatestPriceEur;
-                result.RoomsCount = listing.RoomsCount;
-                result.SurfaceAreaM2 = listing.SurfaceAreaM2;
-                result.City = listing.PostalAddress.City;
-                result.Country = listing.PostalAddress.Country;
-                result.PostalCode = listing.PostalAddress.PostalCode;
-                result.StreetAddress = listing.PostalAddress.StreetAddress;
-                _listingsContext.Listings.Update(result);
-                await _listingsContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-                return Ok(MapListing(result));
+                using (var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
+                {
+                    var priceDate = DateTime.Now;
+                    if (result.Price != listing.LatestPriceEur)
+                    {
+                        var newPriceHistory = new Infrastructure.Database.Models.ListingPriceHistory
+                        {
+                            ListingPriceId = id,
+                            Price = listing.LatestPriceEur,
+                            UpdateDate = priceDate
+                        };
+                        _listingsContext.ListingPriceHistories.Add(newPriceHistory);
+                        await _listingsContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                    }
+
+                    result.BedroomsCount = listing.BedroomsCount;
+                    result.BuildingType = listing.BuildingType.ToString();
+                    result.ContactPhoneNumber = listing.ContactPhoneNumber;
+                    result.UpdatedDate = priceDate;
+                    result.Name = listing.Name;
+                    result.Description = listing.Description;
+                    result.Price = listing.LatestPriceEur;
+                    result.RoomsCount = listing.RoomsCount;
+                    result.SurfaceAreaM2 = listing.SurfaceAreaM2;
+                    result.City = listing.PostalAddress.City;
+                    result.Country = listing.PostalAddress.Country;
+                    result.PostalCode = listing.PostalAddress.PostalCode;
+                    result.StreetAddress = listing.PostalAddress.StreetAddress;
+                    _listingsContext.Listings.Update(result);
+                    await _listingsContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+                    scope.Complete();
+                    return Ok(MapListing(result));
+                }
             }
             catch (Exception ex)
             {
