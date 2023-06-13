@@ -189,17 +189,24 @@ namespace listingapi.Controllers
         public IActionResult GetListingPriceHistory(int id)
         {
             // ToDo : implement me !
-            return Ok(new List<PriceReadOnly>
+            try
             {
-                new PriceReadOnly
+                var results = new List<PriceReadOnly>();
+                var listingPriceHistories = _listingsContext.ListingPriceHistories
+                    .Where(l => l.ListingPriceId == id)
+                    .ToList();
+                foreach (var priceHistory in listingPriceHistories)
                 {
-                    PriceEur = 130000
-                },
-                new PriceReadOnly
-                {
-                    PriceEur = 250000
+                    results.Add(MapPrice(priceHistory));
                 }
-            });
+
+                return Ok(results);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"GetListingPriceHistory. ListingId : {id}. Exception : {ex}");
+                return StatusCode(500);
+            }
         }
 
         private static ListingReadOnly MapListing(Infrastructure.Database.Models.Listing listing)
@@ -227,6 +234,15 @@ namespace listingapi.Controllers
                 },
                 RoomsCount = listing.RoomsCount,
                 SurfaceAreaM2 = (int)listing.SurfaceAreaM2
+            };
+        }
+
+        private static PriceReadOnly MapPrice(Infrastructure.Database.Models.ListingPriceHistory listing)
+        {
+            return new PriceReadOnly
+            {
+                CreatedDate = listing.UpdateDate,
+                PriceEur = (int)listing.Price
             };
         }
     }
