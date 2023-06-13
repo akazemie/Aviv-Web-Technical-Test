@@ -37,6 +37,7 @@ namespace listingapi
                         sqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SingleQuery);
                     });
             });
+            AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
             services.AddControllers(options =>
             {
