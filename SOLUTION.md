@@ -3,6 +3,8 @@
 You can use this file to write down your assumptions and list the missing features or technical revamp that should
 be achieved with your implementation.
 
+I spent approximately 1 hour completing this test.
+
 ## Notes
 
 Write here notes about your implementation choices and assumptions.
